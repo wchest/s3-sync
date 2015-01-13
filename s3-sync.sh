@@ -6,18 +6,44 @@ usage() { echo "Usage: $0 [-c <path to configuration file>] <path to file/folder
 # Set default s3cfg location to s3cmd default
 default_s3cfg="$HOME/.s3cfg"
 
+# Set default s3cmd executable path
+default_s3cmd_path="s3cmd"
+
+# Set default s3cmd options
+default_s3cmd_options="-r --acl-private -e -s --server-side-encryption --cache-file"
+
 # Parse arguments
-while getopts ":c:" opt; do
+while getopts ":c:p:o:d" opt; do
     case $opt in
-	c)
+	c) # Manually specified configuration file
 	    # Set s3cfg var equal to passed in argument
 	    s3cfg=$OPTARG
 	    
 	    # Throw a fatal error if the specified file does not exist
 	    if [ ! -e $s3cfg ]; then 
-	        echo "Fatal: Specified file $s3cfg does not exist! Check the path and try again or run s3cmd --configure to create a .s3cfg file" >&2; exit 1;
+	        echo "Fatal: Specified file $s3cfg does not exist! Check the path and try again or run s3cmd --configure to create a .s3cfg file." >&2; exit 1;
 	    fi
 	    ;;
+	p) # Manually specified s3cmd path
+        s3cmd_path=$OPTARG
+
+        # Throw a fatal error if the specified path to s3cmd does not exist
+        if [ ! -x $s3cmd_path ]; then 
+            echo "Fatal: Specified executable $OPTARG does not appear to exist! Check the path and try again." >&2; exit 1;
+        fi
+        ;;
+    o) # String of all s3cmd options
+        s3cmd_options=$OPTARG
+        
+        # Override defaults if options exist
+        if [ -z $s3cmd_options ]; then
+            echo "Fatal: No options found! Check the options and try again." >&2; exit 1;
+        fi
+        ;;
+    d) # Perform a dry-run
+        # Set dry run variable to true
+        s3cmd_dry_run=true
+        ;;
 	\?)
 	    # Display error text for an invalid option
 	    echo "Invalid option: -$OPTARG"
@@ -30,13 +56,33 @@ while getopts ":c:" opt; do
     esac
 done
 
-# Use the default configuration if no config file passed in
+# This tells getopts to move on to the next argument.
+shift $((OPTIND-1))
+
+# Use the default configuration if no config file specified
 if [ -z "$s3cfg" ] && [ -e $default_s3cfg ]; then
     echo "Using default s3cmd configuration in $HOME/.s3cfg"
     s3cfg=$default_s3cfg
+fi
+
+# Use the default s3cmd path if no path specified
+if [ -z "$s3cmd_path" ] && [ -x $default_s3cmd_path ]; then
+    echo "Using default s3cmd executable $default_s3cmd_path"
+        # Check if path provided exists
+    s3cmd_path=$default_s3cmd_path
+fi
+
+# Use the default s3cmd_options if none specified
+if [ -z "$s3cmd_options" ]; then
+    s3cmd_options=$default_s3cmd_options
+fi
+
+# Check that sync target and path have been specified
+if [ $# -eq 2 ]; then
+    echo "Two arguments passed!"
+
 else
-    # Throw fatal error if no config file passed in and no default config exists
-    echo "Fatal: Unable to determine s3cmd configuration location. Run s3cmd --configure or pass in a proper .s3cfg file" >&2; exit 1;
+    usage
 fi
 
 # s3cmd configuration file location
