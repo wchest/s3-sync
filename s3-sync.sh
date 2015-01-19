@@ -63,38 +63,9 @@ done
 # This tells getopts to move on to the next argument.
 shift $((OPTIND-1))
 
-# Use the default configuration if no config file specified
-if [[ -z "$s3cfg" && -e $default_s3cfg ]]; then
-    echo "INFO: Using default s3cmd configuration in $HOME/.s3cfg"
-    s3cfg="$default_s3cfg"
-fi
-
-# Add flag for s3cfg
-s3cfg="-c $s3cfg"
-
-# Use the default s3cmd path if no path specified
-if [[ -z "$s3cmd_path" && -x $default_s3cmd_path ]]; then
-    echo "INFO: Using default s3cmd executable $default_s3cmd_path"
-    s3cmd_path=$default_s3cmd_path
-fi
-
-# Use the default s3cmd_options if none specified
-if [[ -z "$s3cmd_options" ]]; then
-    echo "INFO: Using default s3cmd options"
-    s3cmd_options=$default_s3cmd_options
-fi
-
-# Check that sync target and path have been specified
-if [[ $# == 2 ]]; then
-    echo "Two arguments passed!"
-    echo "s3cmd_options = $s3cmd_options"
-
-else
-    echo "FATAL: Missing target or S3 bucket arguments" 
-    usage
-fi
-
 # Setup logging
+# If using logging it is strongly recommended to setup logrotate or some other method
+# to prevent log files from accumulating and eating up disk space
 if [[ -z $logfile && -e $logfile ]]; then
     exec >>$logfile 2>&1
 else 
@@ -112,12 +83,46 @@ else
 fi
 
 # Add starting message to logfile
-echo "$(date +%FT%T%z): Starting sync"
 echo "-----------------------------------"
+echo "$(date +%FT%T%z): Starting sync"
+echo ""
+
+# Use the default configuration if no config file specified
+if [[ -z "$s3cfg" && -e $default_s3cfg ]]; then
+    echo "INFO: Using default s3cmd configuration in $HOME/.s3cfg"
+    s3cfg="$default_s3cfg"
+fi
+
+# Add flag for s3cfg
+s3cfg="-c $s3cfg"
+
+# Use the default s3cmd path if no path specified
+if [[ -z "$s3cmd_path" && -x $default_s3cmd_path ]]; then
+    echo "INFO: Using default s3cmd executable $default_s3cmd_path"
+    s3cmd_path=$default_s3cmd_path
+fi
+
+# Use the default s3cmd_options if none specified
+if [[ -z "$s3cmd_options" ]]; then
+    echo "INFO: Using default s3cmd options $default_s3cmd_options"
+    s3cmd_options=$default_s3cmd_options
+fi
+
+# Check that sync target and path have been specified
+if [[ $# != 2 ]]; then
+    echo "FATAL: Missing target or S3 bucket arguments" 
+    usage
+fi
 
 # Run s3cmd command with provided variables
 $s3cmd_path sync $s3cfg $s3cmd_options $s3cmd_dry_run $1 $2
 
 # Add finished message to logfile
-echo "-----------------------------------"
+echo ""
 echo "$(date +%FT%T%z): Finished sync"
+echo "-----------------------------------"
+
+# TODO: Parse logfile for errors and send email update to dev@techchange.org
+# TODO: Potentially email entire log file to dev@techchange.org
+# TODO: Potentially upload logfile to s3 bucket
+# TODO: Not here, but add logrotate to destination
