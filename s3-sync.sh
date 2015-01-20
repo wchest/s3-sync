@@ -12,6 +12,15 @@ default_s3cmd_path="s3cmd"
 # Set default s3cmd options
 default_s3cmd_options="--acl-private -s --server-side-encryption --cache-file $HOME/.cache/s3cmd/cache-file"
 
+# Add CURL email support
+# Set to false if not sending error messages
+send_curl_mail=false
+# mail_server=
+# mail_from=
+# mail_to=
+# mail_subject=
+# mail_api_key=
+
 # Parse arguments
 while getopts ":c:p:o:dl:" opt; do
     case $opt in
@@ -122,7 +131,22 @@ echo ""
 echo "$(date +%FT%T%z): Finished sync"
 echo "-----------------------------------"
 
-# TODO: Parse logfile for errors and send email update to dev@techchange.org
-# TODO: Potentially email entire log file to dev@techchange.org
-# TODO: Potentially upload logfile to s3 bucket
-# TODO: Not here, but add logrotate to destination
+# Parse logfile for errors and send email update to $mail_to including log
+if [[ -e $logfile && $send_curl_mail == true ]]; then
+    # Check to see if there were any errors or warnings in the logfile
+    s3sync_warning_error_output="$(cat $logfile | awk 'BEGIN { warn_count=0; error_count=0; } /^WARN/ { print "<div>", $0, "</div>"; warn_count++; } /^ERROR/ { print "<div>", $0, "</div>"; error_count++; } END { print "<div><strong>Total Warnings:</strong> ", warn_count, "</div>"; print "<div><strong>Total Errors:</strong> ", error_count, "</div>" }')"
+
+    # Base64 encode the logfile to send as an attachment
+    attachment_log=$(cat $logfile | base64)
+
+    # Only send email if errors or warnings found
+    if [[ ! -z $s3sync_warning_error_output ]]; then
+        curl $mail_server \
+          -X POST \
+          -H "Accept: application/json" \
+          -H "Content-Type: application/json" \
+          -H "X-Postmark-Server-Token: $mail_api_key" \
+          -d "{From: '$mail_from', To: '$mail_to', Subject: '$mail_subject', HtmlBody: '$s3sync_warning_error_output', Attachments: [{ Name: 's3-sync-$(date).log', Content: '$attachment_log', ContentType: 'text/plain'}]}"
+    fi
+fi
+# REMINDER: If logging is enabled, use logrotate or other methods to manage log size
