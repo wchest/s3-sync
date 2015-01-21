@@ -28,8 +28,6 @@ while getopts ":c:p:o:dl:" opt; do
 	    # Set s3cfg var equal to passed in argument
 	    s3cfg=$OPTARG
 
-        echo "s3cfg = $s3cfg"
-	    
 	    # Throw a fatal error if the specified file does not exist
 	    if [[ ! -e $s3cfg ]]; then 
 	        echo "FATAL: Specified file $s3cfg does not exist! Check the path and try again or run s3cmd --configure to create a .s3cfg file." >&2; exit 1;
