@@ -7,7 +7,7 @@ usage() { echo "Usage: $0 [-c <path to configuration file>] [-p <path to s3cmd e
 default_s3cfg="$HOME/.s3cfg"
 
 # Set default s3cmd executable path
-default_s3cmd_path="s3cmd"
+default_s3cmd_path=$(which s3cmd)
 
 # Set default s3cmd options
 default_s3cmd_options="--acl-private -s --server-side-encryption --cache-file $HOME/.cache/s3cmd/cache-file"
@@ -24,16 +24,16 @@ send_curl_mail=false
 # Parse arguments
 while getopts ":c:p:o:dl:" opt; do
     case $opt in
-	c) # Manually specified configuration file
-	    # Set s3cfg var equal to passed in argument
-	    s3cfg=$OPTARG
+    c) # Manually specified configuration file
+        # Set s3cfg var equal to passed in argument
+        s3cfg=$OPTARG
 
-	    # Throw a fatal error if the specified file does not exist
-	    if [[ ! -e $s3cfg ]]; then 
-	        echo "FATAL: Specified file $s3cfg does not exist! Check the path and try again or run s3cmd --configure to create a .s3cfg file." >&2; exit 1;
-	    fi
-	    ;;
-	p) # Manually specified s3cmd path
+        # Throw a fatal error if the specified file does not exist
+        if [[ ! -e $s3cfg ]]; then 
+            echo "FATAL: Specified file $s3cfg does not exist! Check the path and try again or run s3cmd --configure to create a .s3cfg file." >&2; exit 1;
+        fi
+        ;;
+    p) # Manually specified s3cmd path
         s3cmd_path=$OPTARG
 
         # Throw a fatal error if the specified path to s3cmd does not exist
@@ -74,6 +74,7 @@ shift $((OPTIND-1))
 # If using logging it is strongly recommended to setup logrotate or some other method
 # to prevent log files from accumulating and eating up disk space
 if [[ -z $logfile && -e $logfile ]]; then
+    logging_on=true
     exec >>$logfile 2>&1
 else 
     if [[ ! -z $logfile ]]; then
@@ -82,6 +83,7 @@ else
 
         # Verify that containing directory exists and is accessible
         if [ -e $logfile_dir ]; then
+            logging_on=true
             exec >>$logfile 2>&1
         else
             echo "Error: Logfile directory $logfile_dir does not exist or is not writable." >&2
@@ -89,10 +91,13 @@ else
     fi
 fi
 
-# Add starting message to logfile
-echo "-----------------------------------"
-echo "$(date +%FT%T%z): Starting sync"
-echo ""
+# Add to log if logging enabled
+if [[ $logging_on ]]; then
+    # Add starting message to logfile
+    echo "-----------------------------------"
+    echo "$(date +%FT%T%z): Starting sync"
+    echo ""
+fi
 
 # Use the default configuration if no config file specified
 if [[ -z "$s3cfg" && -e $default_s3cfg ]]; then
@@ -107,6 +112,11 @@ s3cfg="-c $s3cfg"
 if [[ -z "$s3cmd_path" && -x $default_s3cmd_path ]]; then
     echo "INFO: Using default s3cmd executable $default_s3cmd_path"
     s3cmd_path=$default_s3cmd_path
+fi
+
+# Throw error if no s3cmd path set by this point
+if [[ -z "$s3cmd_path" ]]; then
+    echo "FATAL: No s3cmd executable found. Check that s3cmd is installed by running which s3cmd or specify a path using the -p flag." >&2; exit 1;
 fi
 
 # Use the default s3cmd_options if none specified
@@ -124,13 +134,16 @@ fi
 # Run s3cmd command with provided variables
 $s3cmd_path sync $s3cfg $s3cmd_options $s3cmd_dry_run $1 $2
 
-# Add finished message to logfile
-echo ""
-echo "$(date +%FT%T%z): Finished sync"
-echo "-----------------------------------"
+# Add to log if enabled
+if [[ $logging_on ]]; then
+    # Add finished message to logfile
+    echo ""
+    echo "$(date +%FT%T%z): Finished sync"
+    echo "-----------------------------------"
+fi
 
 # Parse logfile for errors and send email update to $mail_to including log
-if [[ -e $logfile && $send_curl_mail == true ]]; then
+if [[ $logging_on && $send_curl_mail == true ]]; then
     # Check to see if there were any errors or warnings in the logfile
     s3sync_warning_error_output="$(cat $logfile | awk 'BEGIN { warn_count=0; error_count=0; } /^WARN/ { print "<div>", $0, "</div>"; warn_count++; } /^ERROR/ { print "<div>", $0, "</div>"; error_count++; } END { print "<div><strong>Total Warnings:</strong> ", warn_count, "</div>"; print "<div><strong>Total Errors:</strong> ", error_count, "</div>" }')"
 
