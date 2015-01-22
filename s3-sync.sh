@@ -95,7 +95,7 @@ fi
 if [[ $logging_on ]]; then
     # Add starting message to logfile
     echo "-----------------------------------"
-    echo "$(date +%FT%T%z): Starting sync"
+    echo "$(date +%FT%T%z): Starting sync of $1 to $2"
     echo ""
 fi
 
@@ -138,7 +138,7 @@ $s3cmd_path sync $s3cfg $s3cmd_options $s3cmd_dry_run $1 $2
 if [[ $logging_on ]]; then
     # Add finished message to logfile
     echo ""
-    echo "$(date +%FT%T%z): Finished sync"
+    echo "$(date +%FT%T%z): Finished sync of $1 to $2"
     echo "-----------------------------------"
 fi
 
@@ -146,7 +146,7 @@ fi
 if [[ $logging_on && $send_curl_mail == true ]]; then
     # Check to see if there were any errors or warnings in the logfile
     s3sync_warning_error_output="$(cat $logfile | awk 'BEGIN { warn_count=0; error_count=0; } /^WARN/ { print "<div>", $0, "</div>"; warn_count++; } /^ERROR/ { print "<div>", $0, "</div>"; error_count++; } END { print "<div><strong>Total Warnings:</strong> ", warn_count, "</div>"; print "<div><strong>Total Errors:</strong> ", error_count, "</div>" }' | tr -d "'")"
-    
+
     # Base64 encode the logfile to send as an attachment
     attachment_log=$(cat $logfile | base64)
 
@@ -157,7 +157,7 @@ if [[ $logging_on && $send_curl_mail == true ]]; then
           -H "Accept: application/json" \
           -H "Content-Type: application/json" \
           -H "X-Postmark-Server-Token: $mail_api_key" \
-          -d "{From: '$mail_from', To: '$mail_to', Subject: '$mail_subject', HtmlBody: '$s3sync_warning_error_output', Attachments: [{ Name: 's3-sync-$(date).log', Content: '$attachment_log', ContentType: 'text/plain'}]}"
+          -d "{From: '$mail_from', To: '$mail_to', Subject: '$1 - $mail_subject', HtmlBody: '$s3sync_warning_error_output', Attachments: [{ Name: 's3-sync-$(date).log', Content: '$attachment_log', ContentType: 'text/plain'}]}"
     fi
 fi
 # REMINDER: If logging is enabled, use logrotate or other methods to manage log size
