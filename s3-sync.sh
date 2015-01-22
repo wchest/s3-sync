@@ -146,6 +146,9 @@ fi
 if [[ $logging_on && $send_curl_mail == true ]]; then
     # Check to see if there were any errors or warnings in the logfile
     s3sync_warning_error_output="$(cat $logfile | awk 'BEGIN { warn_count=0; error_count=0; } /^WARN/ { print "<div>", $0, "</div>"; warn_count++; } /^ERROR/ { print "<div>", $0, "</div>"; error_count++; } END { print "<div><strong>Total Warnings:</strong> ", warn_count, "</div>"; print "<div><strong>Total Errors:</strong> ", error_count, "</div>" }')"
+    
+    # Replace escape single quotes to prevent breaking json
+    s3sync_warning_error_output="$(echo $logfile | sed s/\'/\"/)"
 
     # Base64 encode the logfile to send as an attachment
     attachment_log=$(cat $logfile | base64)
