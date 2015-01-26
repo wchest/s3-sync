@@ -148,7 +148,8 @@ if [[ $logging_on && $send_curl_mail == true ]]; then
     s3sync_warning_error_output="$(cat $logfile | awk 'BEGIN { warn_count=0; error_count=0; } /^WARN/ { print "<div>", $0, "</div>"; warn_count++; } /^ERROR/ { print "<div>", $0, "</div>"; error_count++; } END { print "<div><strong>Total Warnings:</strong> ", warn_count, "</div>"; print "<div><strong>Total Errors:</strong> ", error_count, "</div>" }' | tr -d "'")"
 
     # Base64 encode the logfile to send as an attachment
-    attachment_log=$(cat $logfile | base64)
+    base64_path=$(which base64)
+    attachment_log=$(cat $logfile | $base64_path)
 
     # Only send email if errors or warnings found
     if [[ ! -z $s3sync_warning_error_output ]]; then
