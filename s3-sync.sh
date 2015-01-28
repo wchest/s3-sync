@@ -132,7 +132,7 @@ if [[ $# != 2 ]]; then
 fi
 
 # Run s3cmd command with provided variables
-$s3cmd_path sync $s3cfg $s3cmd_options $s3cmd_dry_run $1 $2
+$s3cmd_path sync $s3cfg $s3cmd_options $s3cmd_dry_run "$1" "$2"
 
 # Add to log if enabled
 if [[ $logging_on ]]; then
